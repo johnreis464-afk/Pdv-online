@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#2c5aa0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+    <title>DATACAIXA - PDV</title>
+</head>
+<body>
+    <!-- Sidebar Menu -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <img src="img/logo.img.png" alt="Logo" class="sidebar-logo">
+            <h2>DATACAIXA</h2>
+        </div>
+        <nav class="sidebar-menu">
+            <button class="menu-btn active" data-page="inicio">
+                <i class="fas fa-home"></i>
+                <span>Início</span>
+            </button>
+            <button class="menu-btn" data-page="carrinho">
+                <i class="fas fa-shopping-cart"></i>
+                <span>Carrinho de Compras</span>
+            </button>
+            <button class="menu-btn" data-page="adicionar-produto">
+                <i class="fas fa-plus-circle"></i>
+                <span>Adicionar Produto</span>
+            </button>
+            <button class="menu-btn" data-page="clientes">
+                <i class="fas fa-users"></i>
+                <span>Clientes</span>
+            </button>
+            <button class="menu-btn" data-page="imagens">
+                <i class="fas fa-image"></i>
+                <span>Gerenciar Imagens</span>
+            </button>
+        </nav>
+        <div class="sidebar-footer">
+            <button class="btn-logout" onclick="handleLogout()">
+                <i class="fas fa-sign-out-alt"></i>
+                <span>Sair</span>
+            </button>
+        </div>
+    </aside>
+
+    <!-- Toggle Button for Mobile -->
+    <button class="sidebar-toggle" id="sidebarToggle">
+        <i class="fas fa-bars"></i>
+    </button>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1>DATACAIXA - PDV</h1>
+                <div class="status-box">CAIXA ABERTO</div>
+            </div>
+        </header>
+
+        <!-- Pages Container -->
+        <div class="pages-container">
+
+            <!-- PÁGINA: Início -->
+            <section class="page active" id="page-inicio">
+                <div class="page-content">
+                    <h2>Bem-vindo ao DATACAIXA</h2>
+                    <div class="inicio-grid">
+                        <div class="info-card">
+                            <i class="fas fa-shopping-bag"></i>
+                            <h3>Vendas do Dia</h3>
+                            <p id="vendas-dia">R$ 0,00</p>
+                        </div>
+                        <div class="info-card">
+                            <i class="fas fa-users"></i>
+                            <h3>Clientes Cadastrados</h3>
+                            <p id="total-clientes">0</p>
+                        </div>
+                        <div class="info-card">
+                            <i class="fas fa-box"></i>
+                            <h3>Produtos Cadastrados</h3>
+                            <p id="total-produtos">0</p>
+                        </div>
+                        <div class="info-card">
+                            <i class="fas fa-chart-bar"></i>
+                            <h3>Ticket Médio</h3>
+                            <p id="ticket-medio">R$ 0,00</p>
+                        </div>
+                    </div>
+                    <div class="quick-actions">
+                        <button class="action-btn" onclick="switchPage('carrinho')">
+                            <i class="fas fa-shopping-cart"></i>
+                            Ir para Carrinho
+                        </button>
+                        <button class="action-btn" onclick="switchPage('adicionar-produto')">
+                            <i class="fas fa-plus"></i>
+                            Adicionar Produto
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- PÁGINA: Carrinho de Compras -->
+            <section class="page" id="page-carrinho">
+                <div class="page-content">
+                    <h2>Carrinho de Compras</h2>
+                    
+                    <div class="carrinho-tabs">
+                        <button class="tab-btn active" onclick="switchCarrinhoTab('barcode')">
+                            <i class="fas fa-barcode"></i> Código de Barras
+                        </button>
+                        <button class="tab-btn" onclick="switchCarrinhoTab('image')">
+                            <i class="fas fa-image"></i> Reconhecimento por Imagem
+                        </button>
+                    </div>
+
+                    <!-- Tab: Código de Barras -->
+                    <div id="tab-barcode" class="carrinho-tab active">
+                        <div class="barcode-section">
+                            <input type="text" id="barcodeInput" class="barcode-input" placeholder="Digite ou escaneie o código de barras...">
+                            <button class="btn-primary" onclick="scanBarcode()">
+                                <i class="fas fa-barcode"></i>
+                                Escanear
+                            </button>
+                            <button class="btn-primary" onclick="startCameraScanner()">
+                                <i class="fas fa-camera"></i>
+                                Câmera
+                            </button>
+                        </div>
+
+                        <!-- Modal Câmera -->
+                        <div id="cameraModal" class="camera-modal" style="display: none;">
+                            <div class="camera-modal-content">
+                                <div class="camera-header">
+                                    <h3>Escanear Código de Barras</h3>
+                                    <button class="btn-close" onclick="closeCameraScanner()">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                                <div class="camera-body">
+                                    <video id="cameraVideo" class="camera-video"></video>
+                                    <div id="canvas-container" style="display: none;">
+                                        <canvas id="barcodeCanvas"></canvas>
+                                    </div>
+                                    <div class="camera-overlay">
+                                        <div class="scan-area"></div>
+                                        <p>Aponte o código de barras para a câmera</p>
+                                    </div>
+                                </div>
+                                <div class="camera-info">
+                                    <p>Código detectado: <span id="detectedBarcode" class="barcode-text">-</span></p>
+                                </div>
+                                <div class="camera-actions">
+                                    <button class="btn-secondary" onclick="closeCameraScanner()">
+                                        <i class="fas fa-times"></i>
+                                        Cancelar
+                                    </button>
+                                    <button class="btn-primary" onclick="confirmCameraBarcode()">
+                                        <i class="fas fa-check"></i>
+                                        Confirmar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tab: Reconhecimento por Imagem -->
+                    <div id="tab-image" class="carrinho-tab">
+                        <div class="image-recognition-section">
+                            <div class="image-upload-recognition">
+                                <input type="file" id="productImageUpload" accept="image/*" onchange="handleProductImageUpload(event)">
+                                <div class="upload-area-recognition">
+                                    <i class="fas fa-camera"></i>
+                                    <p>Clique para selecionar a imagem do produto</p>
+                                    <small>ou arraste a imagem aqui</small>
+                                </div>
+                            </div>
+
+                            <div id="imageRecognitionResult" class="recognition-result" style="display: none;">
+                                <div class="result-preview">
+                                    <img id="recognizedImage" alt="Produto">
+                                </div>
+                                <div class="result-form">
+                                    <div class="form-group">
+                                        <label>Nome do Produto (detectado):</label>
+                                        <input type="text" id="recognizedProductName" class="form-control" readonly>
+                                    </div>
+                                    <div class="form-row">
+                                        <div class="form-group">
+                                            <label>Código de Barras:</label>
+                                            <input type="text" id="recognizedBarcode" class="form-control" placeholder="Digite o código">
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Quantidade:</label>
+                                            <input type="number" id="recognizedQuantity" class="form-control" value="1" min="1">
+                                        </div>
+                                    </div>
+                                    <div class="form-row">
+                                        <div class="form-group">
+                                            <label>Preço (R$):</label>
+                                            <input type="number" id="recognizedPrice" class="form-control" placeholder="0.00" step="0.01">
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Validade:</label>
+                                            <input type="date" id="recognizedExpiry" class="form-control">
+                                        </div>
+                                    </div>
+                                    <div class="result-actions">
+                                        <button class="btn-secondary" onclick="clearRecognitionResult()">Cancelar</button>
+                                        <button class="btn-primary" onclick="addRecognizedProduct()">
+                                            <i class="fas fa-plus"></i> Adicionar ao Carrinho
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div id="recognitionLoading" class="recognition-loading" style="display: none;">
+                                <div class="spinner"></div>
+                                <p>Analisando imagem...</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Carrinho -->
+                    <div class="cart-display">
+                        <div class="cart-items" id="cartItems">
+                            <p class="empty-message">Carrinho vazio. Adicione produtos escaneando o código de barras ou por imagem.</p>
+                        </div>
+                        
+                        <div class="cart-summary">
+                            <div class="summary-row">
+                                <span>Subtotal:</span>
+                                <span id="subtotal">R$ 0,00</span>
+                            </div>
+                            <div class="summary-row">
+                                <span>Desconto:</span>
+                                <input type="number" id="discount" placeholder="0.00" step="0.01">
+                            </div>
+                            <div class="summary-row total">
+                                <span>Total:</span>
+                                <span id="total">R$ 0,00</span>
+                            </div>
+                            <div class="cart-actions">
+                                <button class="btn-secondary" onclick="clearCart()">Cancelar Venda</button>
+                                <button class="btn-primary" onclick="checkout()">Finalizar Venda</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- PÁGINA: Adicionar Produto -->
+            <section class="page" id="page-adicionar-produto">
+                <div class="page-content">
+                    <h2>Adicionar Novo Produto</h2>
+                    
+                    <form id="formAddProduct" class="form-add-product">
+                        <div class="form-group">
+                            <label for="productCode">Código do Produto:</label>
+                            <input type="text" id="productCode" placeholder="Ex: 789401100856" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="productName">Nome do Produto:</label>
+                            <input type="text" id="productName" placeholder="Ex: Biscoito Integral" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="productPrice">Preço:</label>
+                            <input type="number" id="productPrice" placeholder="0.00" step="0.01" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="productImage">Imagem do Produto:</label>
+                            <div class="image-upload">
+                                <input type="file" id="productImage" accept="image/*" onchange="previewImage(event)">
+                                <div class="image-preview" id="imagePreview">
+                                    <i class="fas fa-image"></i>
+                                    <p>Selecione uma imagem</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn-primary btn-large">
+                            <i class="fas fa-save"></i>
+                            Adicionar Produto
+                        </button>
+                    </form>
+
+                    <div class="products-list">
+                        <h3>Produtos Cadastrados</h3>
+                        <div id="productsList" class="products-grid">
+                            <p class="empty-message">Nenhum produto cadastrado ainda.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- PÁGINA: Clientes -->
+            <section class="page" id="page-clientes">
+                <div class="page-content">
+                    <h2>Gerenciar Clientes</h2>
+
+                    <div class="client-form-container">
+                        <form id="formAddClient" class="form-add-client">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="clientName">Nome do Cliente:</label>
+                                    <input type="text" id="clientName" placeholder="Ex: João Silva" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="clientPhone">Telefone:</label>
+                                    <input type="tel" id="clientPhone" placeholder="(11) 98765-4321">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="clientEmail">Email:</label>
+                                    <input type="email" id="clientEmail" placeholder="email@example.com">
+                                </div>
+                                <div class="form-group">
+                                    <label for="clientAddress">Endereço:</label>
+                                    <input type="text" id="clientAddress" placeholder="Rua, número...">
+                                </div>
+                            </div>
+                            <button type="submit" class="btn-primary">
+                                <i class="fas fa-plus"></i>
+                                Adicionar Cliente
+                            </button>
+                        </form>
+                    </div>
+
+                    <div class="clients-list-container">
+                        <h3>Clientes Registrados</h3>
+                        <div id="clientsList" class="clients-table">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Nome</th>
+                                        <th>Telefone</th>
+                                        <th>Email</th>
+                                        <th>Total Gasto</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="clientsTableBody">
+                                    <tr>
+                                        <td colspan="5" class="empty-message">Nenhum cliente cadastrado.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- PÁGINA: Gerenciar Imagens -->
+            <section class="page" id="page-imagens">
+                <div class="page-content">
+                    <h2>Gerenciar Imagens</h2>
+
+                    <div class="images-upload-section">
+                        <h3>Fazer Upload de Imagens</h3>
+                        <div class="image-upload-area">
+                            <input type="file" id="imageUpload" accept="image/*" multiple onchange="handleImageUpload(event)">
+                            <div class="upload-hint">
+                                <i class="fas fa-cloud-upload-alt"></i>
+                                <p>Arraste imagens aqui ou clique para selecionar</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="images-gallery-section">
+                        <h3>Imagens Cadastradas</h3>
+                        <div id="imagesGallery" class="images-gallery">
+                            <p class="empty-message">Nenhuma imagem cadastrada.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <script src="app.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/ml5@latest/dist/ml5.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/quagga@0.12.1/dist/quagga.min.js"></script>
+</body>
+</html>
