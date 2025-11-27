@@ -11,6 +11,18 @@ const STORAGE_KEYS = {
     SALES: 'pdv_sales'
 };
 
+// API base URL (same origin by default). If your API is hosted elsewhere, set window.API_BASE_URL
+const API_BASE_URL = (window && window.API_BASE_URL) ? window.API_BASE_URL : window.location.origin;
+
+async function apiAvailable() {
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/health`);
+        return res.ok;
+    } catch (e) {
+        return false;
+    }
+}
+
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
     initializeApp();
@@ -151,23 +163,44 @@ function handleAddProduct() {
     
     // Handle image upload if present
     const imageInput = document.getElementById('product-image');
-    if (imageInput && imageInput.files.length > 0) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            product.image = e.target.result;
+        const imagePromise = new Promise((resolve) => {
+            if (imageInput && imageInput.files.length > 0) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    product.image = e.target.result;
+                    resolve(product.image);
+                };
+                reader.readAsDataURL(imageInput.files[0]);
+            } else {
+                resolve(null);
+            }
+        });
+
+        imagePromise.then(async (imgData) => {
+            if (imgData) product.image = imgData;
+            // Try API if available
+            const ok = await apiAvailable();
+            if (ok) {
+                try {
+                    const payload = { barcode: code, name, price, stock: 0, imageUrl: product.image };
+                    const res = await fetch(`${API_BASE_URL}/api/products`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                    const data = await res.json();
+                    if (data && data.success) {
+                        renderProductsList();
+                        resetProductForm();
+                        alert('Produto adicionado com sucesso (API)!');
+                        return;
+                    }
+                } catch (e) {
+                    console.error('Falha ao criar produto via API', e);
+                }
+            }
+            // Fallback local storage
             products.push(product);
             saveToLocalStorage(STORAGE_KEYS.PRODUCTS, products);
             renderProductsList();
             resetProductForm();
-            alert('Produto adicionado com sucesso!');
-        };
-        reader.readAsDataURL(imageInput.files[0]);
-    } else {
-        products.push(product);
-        saveToLocalStorage(STORAGE_KEYS.PRODUCTS, products);
-        renderProductsList();
-        resetProductForm();
-        alert('Produto adicionado com sucesso!');
+            alert('Produto adicionado com sucesso (local)!');
     }
 }
 
@@ -188,27 +221,42 @@ function deleteProduct(id) {
 }
 
 function renderProductsList() {
-    const products = getFromLocalStorage(STORAGE_KEYS.PRODUCTS);
     const container = document.getElementById('products-list');
-    
     if (!container) return;
-    
-    if (products.length === 0) {
-        container.innerHTML = '<p class="empty-state">Nenhum produto cadastrado</p>';
-        return;
-    }
-    
-    container.innerHTML = products.map(product => `
-        <div class="product-card">
-            ${product.image ? `<img src="${product.image}" alt="${product.name}" class="product-image">` : '<div class="no-image"><i class="fas fa-image"></i></div>'}
-            <h3>${product.name}</h3>
-            <p class="code">Código: ${product.code}</p>
-            <p class="price">R$ ${product.price.toFixed(2)}</p>
-            <button onclick="deleteProduct(${product.id})" class="btn-delete">
-                <i class="fas fa-trash"></i> Deletar
-            </button>
-        </div>
-    `).join('');
+
+    apiAvailable().then(async (ok) => {
+        let products = [];
+        if (ok) {
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/products`);
+                const data = await res.json();
+                if (data && data.success) products = data.products;
+            } catch (e) {
+                console.error('Falha ao buscar produtos pela API', e);
+            }
+        }
+
+        if (!products || products.length === 0) {
+            products = getFromLocalStorage(STORAGE_KEYS.PRODUCTS);
+        }
+
+        if (!products || products.length === 0) {
+            container.innerHTML = '<p class="empty-state">Nenhum produto cadastrado</p>';
+            return;
+        }
+
+        container.innerHTML = products.map(product => `
+            <div class="product-card">
+                ${(product.imageUrl || product.image) ? `<img src="${product.imageUrl || product.image}" alt="${product.name}" class="product-image">` : '<div class="no-image"><i class="fas fa-image"></i></div>'}
+                <h3>${product.name}</h3>
+                <p class="code">Código: ${product.barcode || product.code}</p>
+                <p class="price">R$ ${parseFloat(product.price || 0).toFixed(2)}</p>
+                <button onclick="deleteProduct('${product._id || product.id}')" class="btn-delete">
+                    <i class="fas fa-trash"></i> Deletar
+                </button>
+            </div>
+        `).join('');
+    });
 }
 
 // ============================================
@@ -342,13 +390,46 @@ function checkout() {
         date: new Date().toISOString()
     };
     
-    let sales = getFromLocalStorage(STORAGE_KEYS.SALES);
-    sales.push(sale);
-    saveToLocalStorage(STORAGE_KEYS.SALES, sales);
-    saveToLocalStorage(STORAGE_KEYS.CART, []);
-    
-    alert(`Venda realizada com sucesso!\nTotal: R$ ${total.toFixed(2)}`);
-    renderCart();
+    // Try to call API, else fallback to localStorage
+    apiAvailable().then(async (ok) => {
+        if (ok) {
+            try {
+                const payload = {
+                    items: cart.map(item => ({ product: item.productId || item.id, productName: item.name, quantity: item.quantity, unitPrice: item.price })),
+                    total,
+                    paymentMethod: 'cash'
+                };
+                const res = await fetch(`${API_BASE_URL}/api/sales`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                const data = await res.json();
+                if (data && data.success) {
+                    saveToLocalStorage(STORAGE_KEYS.CART, []);
+                    renderCart();
+                    alert(`Venda realizada com sucesso!\nTotal: R$ ${total.toFixed(2)}`);
+                } else {
+                    let sales = getFromLocalStorage(STORAGE_KEYS.SALES);
+                    sales.push(sale);
+                    saveToLocalStorage(STORAGE_KEYS.SALES, sales);
+                    saveToLocalStorage(STORAGE_KEYS.CART, []);
+                    renderCart();
+                    alert(`Venda realizada com sucesso (local)!\nTotal: R$ ${total.toFixed(2)}`);
+                }
+            } catch (e) {
+                let sales = getFromLocalStorage(STORAGE_KEYS.SALES);
+                sales.push(sale);
+                saveToLocalStorage(STORAGE_KEYS.SALES, sales);
+                saveToLocalStorage(STORAGE_KEYS.CART, []);
+                renderCart();
+                alert(`Venda realizada com sucesso (local)!\nTotal: R$ ${total.toFixed(2)}`);
+            }
+        } else {
+            let sales = getFromLocalStorage(STORAGE_KEYS.SALES);
+            sales.push(sale);
+            saveToLocalStorage(STORAGE_KEYS.SALES, sales);
+            saveToLocalStorage(STORAGE_KEYS.CART, []);
+            renderCart();
+            alert(`Venda realizada com sucesso!\nTotal: R$ ${total.toFixed(2)}`);
+        }
+    });
 }
 
 // ============================================
@@ -376,9 +457,30 @@ function handleAddClient() {
         createdAt: new Date().toISOString()
     };
     
-    clients.push(client);
-    saveToLocalStorage(STORAGE_KEYS.CLIENTS, clients);
-    renderClientsList();
+    // If API available try to create in DB
+    apiAvailable().then(async (ok) => {
+        if (ok) {
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/clients`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, email, phone }) });
+                const data = await res.json();
+                if (data && data.success) {
+                    renderClientsList();
+                } else {
+                    clients.push(client);
+                    saveToLocalStorage(STORAGE_KEYS.CLIENTS, clients);
+                    renderClientsList();
+                }
+            } catch (e) {
+                clients.push(client);
+                saveToLocalStorage(STORAGE_KEYS.CLIENTS, clients);
+                renderClientsList();
+            }
+        } else {
+            clients.push(client);
+            saveToLocalStorage(STORAGE_KEYS.CLIENTS, clients);
+            renderClientsList();
+        }
+    });
     
     document.getElementById('client-name').value = '';
     document.getElementById('client-email').value = '';
