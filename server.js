@@ -1,9 +1,12 @@
+require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const Product = require('./models/Product');
 const Sale = require('./models/Sale');
+const Client = require('./models/Client');
+const Image = require('./models/Image');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -306,4 +309,116 @@ app.get('/api/health', (req, res) => {
 app.listen(PORT, () => {
   console.log(`🚀 Servidor rodando na porta ${PORT}`);
   console.log(`📊 Acesse: http://localhost:${PORT}`);
+});
+
+// Criar novo produto
+app.post('/api/products', async (req, res) => {
+  try {
+    const { barcode, name, description, price = 0, stock = 0, category, imageUrl } = req.body;
+    if (!barcode || !name) {
+      return res.status(400).json({ success: false, message: 'barcode and name are required' });
+    }
+
+    const existing = await Product.findOne({ barcode });
+    if (existing) {
+      return res.status(400).json({ success: false, message: 'Produto com este código já existe' });
+    }
+
+    const product = new Product({ barcode, name, description, price, stock, category, imageUrl });
+    await product.save();
+
+    res.json({ success: true, product });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Erro ao criar produto', error: error.message });
+  }
+});
+
+// Atualizar produto
+app.put('/api/products/:id', async (req, res) => {
+  try {
+    const product = await Product.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    if (!product) return res.status(404).json({ success: false, message: 'Produto não encontrado' });
+    res.json({ success: true, product });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Erro ao atualizar produto', error: error.message });
+  }
+});
+
+// Deletar produto (marcar inactive)
+app.delete('/api/products/:id', async (req, res) => {
+  try {
+    const product = await Product.findByIdAndUpdate(req.params.id, { active: false }, { new: true });
+    if (!product) return res.status(404).json({ success: false, message: 'Produto não encontrado' });
+    res.json({ success: true, product });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Erro ao deletar produto', error: error.message });
+  }
+});
+
+// CLIENTES
+// Listar clientes
+app.get('/api/clients', async (req, res) => {
+  try {
+    const clients = await Client.find().sort({ name: 1 });
+    res.json({ success: true, clients });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Erro ao buscar clientes', error: error.message });
+  }
+});
+
+// Criar cliente
+app.post('/api/clients', async (req, res) => {
+  try {
+    const { name, email, phone, address } = req.body;
+    if (!name) return res.status(400).json({ success: false, message: 'Nome é obrigatório' });
+    const client = new Client({ name, email, phone, address });
+    await client.save();
+    res.json({ success: true, client });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Erro ao criar cliente', error: error.message });
+  }
+});
+
+// Atualizar cliente
+app.put('/api/clients/:id', async (req, res) => {
+  try {
+    const client = await Client.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    if (!client) return res.status(404).json({ success: false, message: 'Cliente não encontrado' });
+    res.json({ success: true, client });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Erro ao atualizar cliente', error: error.message });
+  }
+});
+
+// Deletar cliente
+app.delete('/api/clients/:id', async (req, res) => {
+  try {
+    const client = await Client.findByIdAndDelete(req.params.id);
+    if (!client) return res.status(404).json({ success: false, message: 'Cliente não encontrado' });
+    res.json({ success: true, client });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Erro ao deletar cliente', error: error.message });
+  }
+});
+
+// IMAGENS (metadados)
+app.get('/api/images', async (req, res) => {
+  try {
+    const images = await Image.find().sort({ uploadedAt: -1 }).limit(100);
+    res.json({ success: true, images });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Erro ao buscar imagens', error: error.message });
+  }
+});
+
+app.post('/api/images', async (req, res) => {
+  try {
+    const { filename, url, size = 0, mimeType } = req.body;
+    if (!filename || !url) return res.status(400).json({ success: false, message: 'filename and url required' });
+    const image = new Image({ filename, url, size, mimeType });
+    await image.save();
+    res.json({ success: true, image });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Erro ao salvar imagem', error: error.message });
+  }
 });
