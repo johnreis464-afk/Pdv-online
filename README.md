@@ -50,6 +50,11 @@ npm run seed
 2. Atualize `.env` com a URI (substituindo usuário e senha):
 ```
 MONGODB_URI=mongodb+srv://<user>:<password>@cluster0.mongodb.net/pdv-system?retryWrites=true&w=majority
+
+### Whitelist / IP Access
+Se você estiver usando MongoDB Atlas, verifique as configurações de rede do seu cluster e adicione o IP do seu ambiente (ou `0.0.0.0/0` temporariamente para testes públicos) para permitir conexões. Acesse: https://www.mongodb.com/docs/atlas/security-whitelist/
+
+⚠️ Atenção: se a string de conexão (username/password) foi exposta publicamente, recomenda-se **trocar a senha** do usuário no Atlas e não compartilhar a string com terceiros. Nunca comite o arquivo `.env` no repositório.
 ```
 
 ## Teste rápido com cURL
